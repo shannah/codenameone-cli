@@ -276,8 +276,8 @@ public class CodenameOneCLI {
         );
         
         FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.jar"),
-                new File(projectDir, "lib" + File.separator + "CodenameOne_SRC.jar")
+                CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.zip"),
+                new File(projectDir, "lib" + File.separator + "CodenameOne_SRC.zip")
         );
         
         FileUtils.copyInputStreamToFile(
@@ -471,6 +471,24 @@ public class CodenameOneCLI {
         newProps.put("codename1.windows.certificate", "");
         newProps.store(new FileOutputStream(new File(projectDir, "codenameone_settings.properties")), "Written by CodenameOne CLI");
         
+        
+        refreshLibs(projectDir);
+        
+    }
+    
+    
+    private void refreshLibs(File projectDir) {
+        try {
+            System.out.println("Attempting to refresh CN1Libs");
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.inheritIO();
+            pb.command("ant", "refresh-libs");
+            pb.directory(projectDir);
+            Process process = pb.start();
+            process.waitFor();
+        } catch (Exception ex) {
+            System.err.println("Failed to run the refresh-libs target in the project.  If this template contained cn1libs, you may need to select Refresh CN1Libs after opening it in the IDE.");
+        }
     }
     
     public void create(String[] args) throws ParseException, IOException, InterruptedException {
