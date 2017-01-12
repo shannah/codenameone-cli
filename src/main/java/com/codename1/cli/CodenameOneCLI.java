@@ -103,6 +103,8 @@ public class CodenameOneCLI {
             
             replaceRecursive(dest, "NetbeansProjectTemplate", dest.getName());
             
+            copyJarsToProject(dest);
+            
             System.out.println("Netbeans project created at "+dest);
             System.out.println("You can open this project in Netbeans");
             
@@ -159,6 +161,8 @@ public class CodenameOneCLI {
             replaceRecursive(dest, "com.mycompany.myapp.MyApplication", packageName+"."+mainClass);
             
             new File(dest, "IntelliJProjectTemplate.iml").renameTo(new File(dest, dest.getName()+".iml"));
+            
+            copyJarsToProject(dest);
             
             System.out.println("IntelliJ project created at "+dest);
             System.out.println("You can open this project in IntelliJ IDEA");
@@ -243,7 +247,7 @@ public class CodenameOneCLI {
             buildXmlContents = buildXmlContents.replace("EclipseProjectTemplate", dest.getName());
             FileUtils.writeStringToFile(buildXml, buildXmlContents, "UTF-8");
             
-            
+            copyJarsToProject(dest);
             
             clean(new File(dest, "build"));
             clean(new File(dest, "bin"));
@@ -255,6 +259,36 @@ public class CodenameOneCLI {
             Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
             throw new IOException(ex);
         }
+    }
+    
+    private void copyJarsToProject(File projectDir) throws IOException {
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
+                new File(projectDir, "JavaSE.jar"));
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
+                new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
+                new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
+        );
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.jar"),
+                new File(projectDir, "lib" + File.separator + "CodenameOne_SRC.jar")
+        );
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodeNameOneBuildClient.jar"),
+                new File(projectDir, "CodeNameOneBuildClient.jar")
+        );
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("theme.res"),
+                new File(projectDir, "src" + File.separator + "theme.res")
+        );
     }
     
     private File getEclipseLocation(String eclipseLocation) throws IOException{

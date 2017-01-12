@@ -1,3 +1,7 @@
 target
 jdeploy-bundle
 node_modules
+/src/main/resources/com/codename1/cli/tmp/NetbeansProjectTemplate/nbproject/private/
+/src/main/resources/com/codename1/cli/tmp/IntelliJProjectTemplate/nbproject/private/
+/src/main/resources/com/codename1/cli/JavaSE.jar
+/src/main/resources/com/codename1/cli/CodenameOne.jar
