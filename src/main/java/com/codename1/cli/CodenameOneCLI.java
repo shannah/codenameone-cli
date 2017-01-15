@@ -629,6 +629,15 @@ public class CodenameOneCLI {
                             }
                             project.ide = fIde;
                         }
+
+                        @Override
+                        public void runDemo(TemplateBrowser.Template tpl) {
+                            CN1AppletLauncher launcher = CN1AppletLauncher.parseURL(tpl.demoUrl);
+                            launcher.setBlockAndWait(false);
+                            launcher.start();
+                        }
+                        
+                        
                     });
                     
                     
@@ -857,6 +866,17 @@ public class CodenameOneCLI {
         });
     }
     
+    private void runApplet(String[] args) {
+        if (args.length < 2) {
+            System.err.println("cn1 run must include at least 2 arguments");
+            System.exit(1);
+        }
+        CN1AppletLauncher launcher = new CN1AppletLauncher(args[0], args[1]);
+        launcher.setBlockAndWait(true);
+        launcher.start();
+    }
+    
+    
     public static void main(String[] args) throws ParseException, IOException, InterruptedException {
         File f = new File(".").getAbsoluteFile();
         if (f.getName().equals(".")) {
@@ -871,17 +891,24 @@ public class CodenameOneCLI {
         String command = args[0];
         
         switch (command) {
-            case "create" :
+            case "create" : {
                 ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
                 l.removeFirst();
                 cli.create(l.toArray(new String[l.size()]));
                 break;
+            }
             case "settings" :
                 cli.settings();
                 break;
             case "cn1test" :
                 cli.cn1test();
                 break;
+            case "run": {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.runApplet(l.toArray(new String[l.size()]));
+                break;
+            }
             default:
                 System.err.println("Unknown command: "+command);
                 cli.printHelp(null, new Options());
