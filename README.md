@@ -1,6 +1,8 @@
 # codenameone-cli
 Command-line tools for [Codename One](http://wwww.codenameone.com)
 
+**Project Status:**  This project is at a very early stage.  If you want to get started with Codename One, building cross-platform mobile apps in Java, I recommend you start with the official [Codename One Getting Started Tutorial](https://www.codenameone.com/download.html).  Once you are familiar with the toolkit, you may want to revisit this command-line tool as it aims to boost development productivity, especially for developers who are comfortable with the command-line.
+
 ## Features
 
 ### Creating Projects
