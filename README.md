@@ -70,6 +70,10 @@ This will open a GUI form that allows you to browse and select a template to use
 
 ![Create project form](https://raw.githubusercontent.com/wiki/shannah/codenameone-cli/images/create-project-form.png)
 
+You can click on any of the templates, and get more details about it, or run the template inside the Codename One simulator directly.
+
+![Template details panel](https://raw.githubusercontent.com/wiki/shannah/codenameone-cli/images/template-details.png)
+
 **Specifying Template and IDE in Command-line**
 
 ~~~~
