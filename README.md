@@ -65,3 +65,7 @@ cn1 create helloworld -g
 ~~~~
 
 This will open a GUI form that allows you to browse and select a template to use for the project.
+
+![Create project form](https://raw.githubusercontent.com/wiki/shannah/codenameone-cli/images/create-project-form.png)
+
+
