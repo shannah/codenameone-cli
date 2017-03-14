@@ -5,6 +5,7 @@
  */
 package com.codename1.cli;
 
+import com.codename1.io.Util;
 import com.codename1.templatebrowser.TemplateBrowser;
 import com.codename1.templatebrowser.TemplateBrowser.TemplateBrowserConnector;
 import java.awt.Dimension;
@@ -16,12 +17,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.BackingStoreException;
@@ -865,6 +870,205 @@ public class CodenameOneCLI {
             f.setVisible(true);
         });
     }
+    private void printCSSHelp() {
+        System.out.println("Usage: codenameone-cli css <command>\n"
+                + "\n"
+                + "Commands: \n"
+                + " install - Installs the CSS library in this project.\n"
+                + " update - Downloads latest CSS library and replaces existing one.\n"
+                + "\n"
+                + "Examples:\n"
+                + "  $ codenameone-cli css install\n"
+                + "");
+        
+    }
+    
+    private void css(String[] args) throws IOException, InterruptedException {
+        try {
+            Options opts = new Options();
+            
+            
+            
+            
+            
+            DefaultParser parser = new DefaultParser();
+            CommandLine line = parser.parse(opts, args);
+            args = line.getArgs();
+            
+            if (args.length < 1) {
+                System.err.println("Invalid option for css");
+                printCSSHelp();
+                System.exit(1);
+            }
+            
+            switch (args[0]) {
+                case "install" :
+                    installCSS(false);
+                    break;
+                    
+                case "update":
+                    installCSS(true);
+                    
+                default :
+                    System.err.println("Invalid option for css");
+                    printCSSHelp();
+            }
+            
+        } catch (ParseException ex) {
+            Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
+            printCSSHelp();
+        }
+    }
+    
+    private void installCSS(boolean update) throws IOException, InterruptedException {
+        File settings = new File(dir, "codenameone_settings.properties");
+        if (!settings.exists()) {
+            System.err.println("This is not a codename one project directory.  Navigate to a project directory then run this command again.");
+            System.exit(1);
+        }
+        File buildXml = new File(dir, "build.xml");
+        String contents = FileUtils.readFileToString(buildXml, "UTF-8");
+        if (contents.contains("compileCSS")) {
+            System.out.println("build.xml file already includes compileCSS task.  Leaving build.xml file untouched");
+        } else {
+            System.out.println("Updating build.xml file to run compileCSS ANT task before pre-compile step...");
+            String codenameOneSettingsPropertiesStr = "<property file=\"codenameone_settings.properties\"/>";
+            if (contents.indexOf(codenameOneSettingsPropertiesStr) == -1) {
+                codenameOneSettingsPropertiesStr = "<property file=\"codenameone_settings.properties\" />";
+            }
+            contents = contents.replace(codenameOneSettingsPropertiesStr, "<property file=\"codenameone_settings.properties\"/>\n    <taskdef name=\"compileCSS\"\n" +
+                "        classname=\"com.codename1.ui.css.CN1CSSCompileTask\"\n" +
+                "        classpath=\"lib/cn1css-ant-task.jar\"/>\n" +
+                "    \n" +
+                "    <target name=\"compile-css\">\n" +
+                "        <compileCSS/>\n" +
+                "    </target>");
+            boolean isEclipse = new File(dir, "build.props").exists();
+            if (isEclipse) {
+                contents = contents.replace("<compileCSS/>", "<compileCSS/> <eclipse.refreshLocal resource=\"${basedir}/src\" depth=\"infinite\"/>");
+            }
+            if (contents.indexOf("<target name=\"-pre-compile\"") != -1) {
+            
+                contents = contents.replace("<target name=\"-pre-compile\">", "<target name=\"-pre-compile\" depends=\"compile-css\">");
+            } else {
+                contents = contents.replace("<target name=\"jar\"", "<target name=\"jar\" depends=\"compile-css\"");
+            }
+            
+            contents = contents.replace("<target name=\"setupJavac\" depends=\"", "<target name=\"setupJavac\" depends=\"compile-css, ");
+            File backupBuildXml = new File(buildXml.getParentFile(), "build.xml.bak."+System.currentTimeMillis());
+            System.out.println("Backing up existing build.xml file at "+ backupBuildXml.getName());
+            FileUtils.copyFile(buildXml, backupBuildXml);
+            FileUtils.write(buildXml, contents);
+            
+        }
+        
+        File libDir = new File(dir, "lib");
+        File cssDir = new File(dir, "css");
+        libDir.mkdirs();
+        cssDir.mkdirs();
+        
+        File themeCssFile = new File(cssDir, "theme.css");
+        if (!themeCssFile.exists()) {
+            System.out.println("Creating CSS file for your app at "+themeCssFile.getPath());
+            FileUtils.write(themeCssFile, "");
+        } else {
+            System.out.println("Theme CSS file already exists at "+themeCssFile.getPath()+".  Leaving it untouched");
+        }
+        
+        URL antTaskUrl = new URL("https://github.com/shannah/cn1-css/raw/master/bin/cn1css-ant-task.jar");
+        HttpURLConnection conn = (HttpURLConnection)antTaskUrl.openConnection();
+        conn.setInstanceFollowRedirects(true);
+        
+        File antJarFile = new File(libDir, "cn1css-ant-task.jar");
+        if (!antJarFile.exists() || update) {
+            System.out.println("Downloading latest cn1css-ant-task.jar from "+antTaskUrl);
+            System.out.println("Installing to "+antJarFile.getPath());
+            FileUtils.copyInputStreamToFile(conn.getInputStream(), antJarFile);
+        } else {
+            System.out.println(antJarFile.getPath()+" exists.  Leaving untouched.  Use cn1 css update to download latest");
+        }
+        
+        /*
+         Java javaTask = (Java)getProject().createTask("java");
+                Path cp = javaTask.createClasspath();
+                cp.add(new Path(getProject(), javaSEJar.getAbsolutePath()));
+                cp.add(new Path(getProject(), designerJar.getAbsolutePath()));
+                cp.add(new Path(getProject(), cssJar.getAbsolutePath()));
+                
+                javaTask.setClasspath(cp);
+                javaTask.setFork(true);
+                javaTask.setClassname("com.codename1.ui.css.CN1CSSCLI");
+                javaTask.setFailonerror(true);
+                String maxMemory = getProject().getProperty("cn1css.max.memory");
+                if (maxMemory != null) {
+                    javaTask.setMaxmemory("4096m");
+                }
+                
+                Argument arg = javaTask.createArg();
+                arg.setValue(f.getAbsolutePath());
+                
+                Argument destArg = javaTask.createArg();
+                destArg.setValue(destFile.getAbsolutePath());
+                
+                javaTask.execute();
+        */
+        
+        File javaSEJar = new File(dir, "JavaSE.jar");
+        String codenameOneTempPath = System.getProperty("user.home") + File.separator + ".codenameone";
+        String designerJarPath = cssDir.getAbsolutePath() + File.separator + "designer_1.jar";
+        File designerJar = new File(designerJarPath);
+        if (!designerJar.exists()) {
+            designerJarPath = codenameOneTempPath + File.separator + "designer_1.jar";
+
+            designerJar = new File(designerJarPath);
+            if (!designerJar.exists()) {
+                System.err.println("Failed to find the designer_1.jar file so we couldn't update the default resource file to enable CSS styles.\n"
+                        + "To enable CSS styles in your app, you should add the following theme constant to your theme.res file: @OverlayThemes=theme.css");
+                System.exit(1);
+            }
+        }
+        
+        //File cssJar = antJarFile;
+        File resFile = new File(dir, "src" + File.separator + "theme.res");
+        if (!resFile.exists()) {
+            System.err.println("Could not find theme.res file in src directory. \n"
+                    + "To enable CSS styles in your app, you should add the following theme constant to your theme.res file: @OverlayThemes=theme.css");
+            System.exit(1);
+        }
+        
+        JarFile jarFile = new JarFile(antJarFile);
+        JarEntry cn1cssEntry = jarFile.getJarEntry("com/codename1/ui/css/cn1css.jar");
+        File cssJar = new File(libDir, "cn1css.jar");
+        FileUtils.copyInputStreamToFile(jarFile.getInputStream(cn1cssEntry), cssJar);
+        
+        jarFile.getInputStream(cn1cssEntry);
+        
+        ProcessBuilder pb = new ProcessBuilder();
+        pb.inheritIO();
+        pb.command("java", 
+                "-cp", 
+                javaSEJar.getAbsolutePath()+File.pathSeparator
+                        +designerJar.getAbsolutePath()+File.pathSeparator
+                        +cssJar.getAbsolutePath(),
+                "com.codename1.ui.css.CN1CSSInstallerCLI",
+                "install",
+                themeCssFile.getAbsolutePath(),
+                resFile.getAbsolutePath()
+                );
+        Process p = pb.start();
+        if (p.waitFor() == 0) {
+            System.out.println("Successfully install CSS file.  You may open the CSS file at "+themeCssFile.getPath()+ " and start customizing your theme.");
+        } else {
+            System.err.println("Failed to install theme constant to your resource file to activate the CSS theme.\n"
+                    + "To enable CSS styles in your app, you should add the following theme constant to your theme.res file: @OverlayThemes=theme.css");
+            System.exit(1);
+        }
+        
+        
+        
+        
+        
+    }
     
     private void runApplet(String[] args) {
         if (args.length < 2) {
@@ -909,6 +1113,13 @@ public class CodenameOneCLI {
                 cli.runApplet(l.toArray(new String[l.size()]));
                 break;
             }
+            case "css" : {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.css(l.toArray(new String[l.size()]));
+                break;
+            }
+                
             default:
                 System.err.println("Unknown command: "+command);
                 cli.printHelp(null, new Options());
