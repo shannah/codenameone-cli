@@ -296,6 +296,33 @@ public class CodenameOneCLI {
         );
     }
     
+    private void copyJarsToProjectWithoutRes(File projectDir) throws IOException {
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
+                new File(projectDir, "JavaSE.jar"));
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
+                new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
+                new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
+        );
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.zip"),
+                new File(projectDir, "lib" + File.separator + "CodenameOne_SRC.zip")
+        );
+        
+        FileUtils.copyInputStreamToFile(
+                CodenameOneCLI.class.getResourceAsStream("CodeNameOneBuildClient.jar"),
+                new File(projectDir, "CodeNameOneBuildClient.jar")
+        );
+        
+        
+    }
+    
     private File getEclipseLocation(String eclipseLocation) throws IOException{
         try {
             Preferences prefs = Preferences.userNodeForPackage(CodenameOneCLI.class);
@@ -423,6 +450,9 @@ public class CodenameOneCLI {
         
         if (new File(templateDir, "res").exists()) {
             FileUtils.copyDirectory(new File(templateDir, "res"), new File(projectDir, "res"));
+        }
+        if (new File(templateDir, "css").exists()) {
+            FileUtils.copyDirectory(new File(templateDir, "css"), new File(projectDir, "css"));
         }
         
         Properties origProps = new Properties();
@@ -1117,6 +1147,11 @@ public class CodenameOneCLI {
                 ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
                 l.removeFirst();
                 cli.css(l.toArray(new String[l.size()]));
+                break;
+            }
+            
+            case "install-jars" : {
+                cli.copyJarsToProjectWithoutRes(new File("."));
                 break;
             }
                 
