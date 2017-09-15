@@ -104,6 +104,7 @@ public class CodenameOneCLI {
             props.put("codename1.ios.release.certificate", "");
             props.put("codename1.ios.debug.provision", "");
             props.put("codename1.windows.certificate", "");
+            props.put("libVersion", "");
             props.store(new FileOutputStream(cn1Settings), "Written by CodenameOneCLI");
             
             replaceRecursive(dest, "NetbeansProjectTemplate", dest.getName());
@@ -112,6 +113,7 @@ public class CodenameOneCLI {
             
             System.out.println("Netbeans project created at "+dest);
             System.out.println("You can open this project in Netbeans");
+            System.out.println("NOTE: If you receive compile warnings, you may need to update the project libs first so that it is working with the latest.");
             
         } catch (ZipException ex) {
             Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
@@ -160,6 +162,7 @@ public class CodenameOneCLI {
             props.put("codename1.ios.release.certificate", "");
             props.put("codename1.ios.debug.provision", "");
             props.put("codename1.windows.certificate", "");
+            props.put("libVersion", "1");
             props.store(new FileOutputStream(cn1Settings), "Written by CodenameOneCLI");
             
             replaceRecursive(dest, "IntelliJProjectTemplate", dest.getName());
@@ -171,6 +174,7 @@ public class CodenameOneCLI {
             
             System.out.println("IntelliJ project created at "+dest);
             System.out.println("You can open this project in IntelliJ IDEA");
+            System.out.println("NOTE: If you receive compile warnings, you may need to update the project libs first so that it is working with the latest.");
             
         } catch (ZipException ex) {
             Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
@@ -214,6 +218,7 @@ public class CodenameOneCLI {
             props.put("codename1.ios.release.certificate", "");
             props.put("codename1.ios.debug.provision", "");
             props.put("codename1.windows.certificate", "");
+            props.put("libVersion", "1");
             props.store(new FileOutputStream(cn1Settings), "Written by CodenameOneCLI");
             
             File projectFile = new File(dest, ".project");
@@ -258,6 +263,7 @@ public class CodenameOneCLI {
             clean(new File(dest, "bin"));
             System.out.println("Eclipse project has been created at "+dest);
             System.out.println("Open the project in Eclipse, and perform a clean build to begin.");
+            System.out.println("NOTE: If you receive compile warnings, you may need to update the project libs first so that it is working with the latest.");
             
             
         } catch (ZipException ex) {
@@ -504,6 +510,7 @@ public class CodenameOneCLI {
         newProps.put("codename1.ios.release.certificate", "");
         newProps.put("codename1.ios.debug.provision", "");
         newProps.put("codename1.windows.certificate", "");
+        newProps.put("libVersion", "1");
         newProps.store(new FileOutputStream(new File(projectDir, "codenameone_settings.properties")), "Written by CodenameOne CLI");
         
         
