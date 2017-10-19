@@ -989,16 +989,19 @@ public class CodenameOneCLI {
         File javaSE = new File("JavaSE.jar");
         File testJavaSE = new File(testDir, "JavaSE.jar");
         File javaSEBak = new File(testJavaSE.getPath()+".bak."+System.currentTimeMillis());
+        javaSEBak.deleteOnExit();
         boolean copiedJavaSE = false;
         
         File cn1Jar = new File("CodenameOne.jar");
         File testCn1Jar = new File(testDir, "lib/CodenameOne.jar");
         File cn1JarBak = new File(testCn1Jar.getPath()+".bak."+System.currentTimeMillis());
+        cn1JarBak.deleteOnExit();
         boolean copiedCn1Jar = false;
         
         File cldcJar = new File("CLDC11.jar");
         File testCldcJar = new File(testDir, "lib/CLDC11.jar");
         File cldcJarBak = new File(testCldcJar.getPath()+".bak."+System.currentTimeMillis());
+        cldcJarBak.deleteOnExit();
         boolean copiedCldcJar = false;
         
         try {
@@ -1114,8 +1117,11 @@ public class CodenameOneCLI {
     private void test(String[] args) {
         Options opts = new Options();
         File seJarBak = new File("JavaSE.jar."+System.currentTimeMillis());
+        seJarBak.deleteOnExit();
         File cn1JarBak = new File("CodenameOne.jar."+System.currentTimeMillis());
+        cn1JarBak.deleteOnExit();
         File cldcJarBak = new File("CLDC11.jar."+System.currentTimeMillis());
+        cldcJarBak.deleteOnExit();
         
         File seJarOrig = new File("JavaSE.jar");
         File cn1JarOrig = new File("CodenameOne.jar");
@@ -1250,7 +1256,7 @@ public class CodenameOneCLI {
             File libCldcJar = new File(lib, "CLDC11.jar");
             File libSeJar = new File(lib, "JavaSE.jar");
             if (update || !libCn1Jar.exists() || !libCldcJar.exists() || !libSeJar.exists()) {
-                File libsZip = downloadFiles(null);
+                File libsZip = downloadFiles(line.getOptionValue("version"));
                 libsZip.deleteOnExit();
                 if (update || !libCn1Jar.exists()) {
                     extractCodenameOneJarTo(libsZip, libCn1Jar);
@@ -1264,12 +1270,15 @@ public class CodenameOneCLI {
             }
             
             if (line.hasOption("version") || !cn1JarOrig.exists() || useDefaultCn1Jar) {
+                System.out.println("Using "+libCn1Jar);
                 FileUtils.copyFile(libCn1Jar, cn1JarOrig);
             }
             if (line.hasOption("version") || !seJarOrig.exists() || useDefaultSeJar) {
+                System.out.println("Using "+libSeJar);
                 FileUtils.copyFile(libSeJar, seJarOrig);
             }
             if (line.hasOption("version") || !cldcJarOrig.exists() || useDefaultCldcJar) {
+                System.out.println("Using "+libCldcJar);
                 FileUtils.copyFile(libCldcJar, cldcJarOrig);
             }
             
@@ -1297,6 +1306,16 @@ public class CodenameOneCLI {
                         }
                     }
                 }
+                if (matched && test.getAttribute("since") != null) {
+                    double since = Double.parseDouble(test.getAttribute("since"));
+                    if (line.hasOption("version")) {
+                        double ver = Double.parseDouble(line.getOptionValue("version"));
+                        if (ver < since) {
+                            System.out.println("Skipping test "+name+" because it requires a higher version than "+ver);
+                            matched = false;
+                        }
+                    }
+                }
                 if (!matched) {
                     continue;
                 }
@@ -1318,6 +1337,7 @@ public class CodenameOneCLI {
                 try {
                     if (seJarOrig.exists()) seJarOrig.delete();
                     FileUtils.moveFile(seJarBak, seJarOrig);
+                    if (seJarBak.exists()) seJarBak.delete();
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
@@ -1328,6 +1348,9 @@ public class CodenameOneCLI {
                         cn1JarOrig.delete();
                     }
                     FileUtils.moveFile(cn1JarBak, cn1JarOrig);
+                    if (cn1JarBak.exists()) {
+                        cn1JarBak.delete();
+                    }
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
@@ -1338,6 +1361,9 @@ public class CodenameOneCLI {
                         cldcJarOrig.delete();
                     }
                     FileUtils.moveFile(cldcJarBak, cldcJarOrig);
+                    if (cldcJarBak.exists()) {
+                        cldcJarBak.delete();
+                    }
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
