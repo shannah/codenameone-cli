@@ -5,20 +5,21 @@
  */
 package com.codename1.cli;
 
-import com.codename1.io.Util;
 import com.codename1.templatebrowser.TemplateBrowser;
 import com.codename1.templatebrowser.TemplateBrowser.TemplateBrowserConnector;
+import com.codename1.xml.Element;
+import com.codename1.xml.XMLParser;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.file.CopyOption;
-import java.nio.file.Files;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,6 +32,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.JFrame;
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -48,7 +51,8 @@ import org.apache.commons.io.FileUtils;
  */
 public class CodenameOneCLI {
     
-    
+    private static String GIT="git";
+    private static String ANT="ant";
     
     public static enum IDE {
         Netbeans,
@@ -862,7 +866,10 @@ public class CodenameOneCLI {
             System.err.println("Usage: codenameone-cli [command] \n\n"
                     + "Commands:\n"
                     + "  create - Create a new Codename One Project\n"
-                    + "  settings - Open project settings for project in current directory.");
+                    + "  settings - Open project settings for project in current directory.\n"
+                    + "  css - CSS-related commands\n"
+                    + "  test - Unit-test related commands\n"
+                    + "  ");
             
         }
     }
@@ -908,7 +915,7 @@ public class CodenameOneCLI {
         });
     }
     private void printCSSHelp() {
-        System.out.println("Usage: codenameone-cli css <command>\n"
+        System.out.println("Usage: cn1 css <command>\n"
                 + "\n"
                 + "Commands: \n"
                 + " install - Installs the CSS library in this project.\n"
@@ -918,6 +925,320 @@ public class CodenameOneCLI {
                 + "  $ codenameone-cli css install\n"
                 + "");
         
+    }
+    
+    private void printTestHelp(Options opts) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp("cn1 test [options] [project1] [project2] ...", "Codename One Unit Test Runner", opts, "See wiki for usage instructions.  \nhttps://github.com/shannah/codenameone-cli/wiki/test");
+        
+        
+    }
+    
+    
+    private void prepareTest(Element test) throws IOException, InterruptedException {
+        
+        String path = test.getAttribute("path");
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("Test missing 'path' attribute");
+        }
+        System.out.println("Preparing test "+path+"...");
+        File testDir = new File(path);
+
+        String repo = test.getAttribute("repo");
+        if (repo == null) {
+            repo = "";
+        }
+        if (repo.isEmpty() && !testDir.exists()) {
+            throw new IllegalArgumentException("Test "+path+" missing and no repo specified");
+        }
+        
+        if (!repo.isEmpty()) {
+            if (!testDir.exists()) {
+                Process p = new ProcessBuilder(GIT, "clone", repo, testDir.getAbsolutePath()).inheritIO().start();
+                if (p.waitFor() != 0) {
+                    throw new IOException("Failed to clone repo "+repo+" to "+testDir);
+                }
+            } else {
+                Process p = new ProcessBuilder(GIT, "pull", "origin", "master").directory(testDir).inheritIO().start();
+                if (p.waitFor() != 0) {
+                    throw new IOException("Failed to update repo "+repo+" in "+testDir);
+                }
+            }
+        }
+                
+    }
+    
+    
+    
+    private void runTest(Element test) throws IOException, InterruptedException {
+        boolean testPassed = true;
+        boolean testCompleted = false;
+        StringBuilder sb = new StringBuilder();
+        String path = test.getAttribute("path");
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("Test missing 'path' attribute");
+        }
+        System.out.print("Running test "+path+"... ");
+        File testDir = new File(path);
+        if (!testDir.exists()) {
+            throw new IllegalArgumentException("Testy "+testDir+" does not exist");
+        }
+        
+        File javaSE = new File("JavaSE.jar");
+        File testJavaSE = new File(testDir, "JavaSE.jar");
+        File javaSEBak = new File(testJavaSE.getPath()+".bak."+System.currentTimeMillis());
+        boolean copiedJavaSE = false;
+        
+        File cn1Jar = new File("CodenameOne.jar");
+        File testCn1Jar = new File(testDir, "lib/CodenameOne.jar");
+        File cn1JarBak = new File(testCn1Jar.getPath()+".bak."+System.currentTimeMillis());
+        boolean copiedCn1Jar = false;
+        
+        File cldcJar = new File("CLDC11.jar");
+        File testCldcJar = new File(testDir, "lib/CLDC11.jar");
+        File cldcJarBak = new File(testCldcJar.getPath()+".bak."+System.currentTimeMillis());
+        boolean copiedCldcJar = false;
+        
+        try {
+            if (javaSE.exists()) {
+                copiedJavaSE = true;
+                if (verbose) System.out.println("Copying "+javaSE+" to "+testJavaSE);
+                if (testJavaSE.exists()) FileUtils.moveFile(testJavaSE, javaSEBak);
+                FileUtils.copyFile(javaSE, testJavaSE);
+            }
+            
+            if (cn1Jar.exists()) {
+                copiedCn1Jar = true;
+                if (verbose) System.out.println("Copying "+cn1Jar+" to "+testCn1Jar);
+                if (testCn1Jar.exists()) FileUtils.moveFile(testCn1Jar, cn1JarBak);
+                FileUtils.copyFile(cn1Jar, testCn1Jar);
+            }
+            
+            if (cldcJar.exists()) {
+                copiedCldcJar = true;
+                if (verbose) System.out.println("Copying "+cldcJar+" to "+testCldcJar);
+                if (testCldcJar.exists()) FileUtils.moveFile(testCldcJar, cldcJarBak);
+                FileUtils.copyFile(cldcJar, testCldcJar);
+            }
+            
+            Process p = new ProcessBuilder(ANT, "test").directory(testDir).start();
+            
+            String sep = System.getProperty("line.separator");
+            try (InputStream is = p.getInputStream()) {
+                Scanner scanner = new Scanner(is, "UTF-8");
+                Pattern failedPattern = Pattern.compile(".*Passed: (\\d+) tests\\. Failed: (\\d+) tests\\..*");
+                                                            //Total 1 tests passed
+                Pattern allPassedPattern = Pattern.compile(".*Total (\\d+) tests passed.*");
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine();
+                    if (!verbose) {
+                        sb.append(line).append(sep);
+                    } else {
+                        System.out.println(line);
+                    }
+                    line = line.trim();
+                    Matcher m = failedPattern.matcher(line);
+                    Matcher m2 = allPassedPattern.matcher(line);
+                    if (m.find()) {
+                        testCompleted = true;
+                        String numFailedStr = m.group(2);
+                        if (Integer.parseInt(numFailedStr) > 0) {
+                            testPassed = false;
+                        }
+                        passedTests += Integer.parseInt(m.group(1));
+                        failedTests += Integer.parseInt(m.group(2));
+                        System.out.println(line);
+                    } else if (m2.find()) {
+                        testCompleted = true;
+                        passedTests += Integer.parseInt(m2.group(1));
+                    }
+                }
+                if (p.waitFor() != 0) {
+                    
+                    throw new RuntimeException("Test "+testDir+" failed");
+                }
+            }
+            
+            
+        } finally {
+            if (copiedJavaSE) {
+                testJavaSE.delete();
+                if (javaSEBak.exists()) FileUtils.moveFile(javaSEBak, testJavaSE);
+            }
+            if (copiedCn1Jar) {
+                testCn1Jar.delete();
+                if (cn1JarBak.exists()) FileUtils.moveFile(cn1JarBak, testCn1Jar);
+            }
+            if (copiedCldcJar) {
+                testCldcJar.delete();
+                if (cldcJarBak.exists()) FileUtils.moveFile(cldcJarBak, testCldcJar);
+            }
+        }
+        if (!testCompleted) {
+            System.err.println("\nTest did not complete.  Check the project structure of "+testDir+" to ensure that the 'ant test' target works.");
+            if (sb.length() > 0) {
+                System.err.println(sb.toString());
+                throw new RuntimeException("Test "+testDir+" did not complete");
+            }
+        }
+        if (!testPassed) {
+            
+            if (stopOnFail) {
+                if (sb.length() > 0) {
+                    System.err.println("Test "+testDir+" FAILED.  Error log:");
+                    System.err.println(sb.toString());
+                }
+                throw new RuntimeException("Test "+testDir+" FAILED");
+            } else {
+                if (sb.length() > 0 && errors) {
+                    System.err.println("Test "+testDir+" FAILED.  Error log:");
+                    System.err.println(sb.toString());
+                } else {
+                    System.out.println("Test "+testDir+" FAILED.");
+                }
+            }
+            
+        } else {
+            System.out.println("Test "+testDir+" PASSED.");
+        }
+        
+        
+    }
+    
+    private boolean verbose, errors, stopOnFail;
+    private int passedTests;
+    private int failedTests;
+    
+    private void test(String[] args) {
+        Options opts = new Options();
+        try {
+            opts = new Options();
+            opts.addOption("u", "update", false, "Update the tests to the latest.");
+            opts.addOption("v", "verbose", false, "Verbose output");
+            opts.addOption("e", "errors", false, "Show more information about failures");
+            opts.addOption("s", "stopOnFail", false, "Stop on failure");
+            opts.addOption("h", "help", false, "Help");
+            opts.addOption("seJar", true, "Path to version of JavaSE.jar to be used for tests.");
+            opts.addOption("cn1Jar", true, "Path to version of CodenameOne.jar to be used for tests.");
+            opts.addOption("cldcJar", true, "Path to version of CLDC11.jar to be used for tests.");
+            opts.addOption("cn1Sources", true, "Path to codename one sources to use for tests");
+            
+            DefaultParser parser = new DefaultParser();
+            
+            CommandLine line = parser.parse(opts, args);
+            args = line.getArgs();
+            
+            boolean update = line.hasOption("u");
+            verbose = line.hasOption("v");
+            errors = line.hasOption("e");
+            stopOnFail = line.hasOption("s");
+            
+            if (line.hasOption("h")) {
+                printTestHelp(opts);
+                return;
+            }
+            
+            passedTests = 0;
+            failedTests = 0;
+            
+            List<String> argsList = Arrays.asList(args);
+            File testConf = new File("tests.xml");
+            XMLParser xparser = new XMLParser();
+            Element el = xparser.parse(new FileReader(testConf));
+            
+            String codenameOneJarPath = el.getAttribute("cn1Jar");
+            if (line.hasOption("cn1Jar")) {
+                codenameOneJarPath = line.getOptionValue("cn1Jar");
+            }
+            String javaSEJarPath = el.getAttribute("seJar");
+            if (line.hasOption("seJar")) {
+                javaSEJarPath = line.getOptionValue("seJar");
+            }
+            String cldcJarPath = el.getAttribute("clcdJar");
+            if (line.hasOption("cldcJar")) {
+                cldcJarPath = line.getOptionValue("cldcJar");
+            }
+            String cn1Sources = el.getAttribute("cn1Sources");
+            if (line.hasOption("cn1Sources")) {
+                cn1Sources = line.getOptionValue("cn1Sources");
+            }
+            if (cn1Sources != null && !cn1Sources.isEmpty()) {
+                File cn1SourcesDir = new File(cn1Sources);
+                if (!cn1SourcesDir.exists()) {
+                    throw new FileNotFoundException("Specified cn1Sources attribute with value "+cn1Sources+" but this location was not found.");
+                }
+                File cn1ProjectDir = new File(cn1SourcesDir, "CodenameOne");
+                File javaSEProjectDir = new File(cn1SourcesDir, "Ports/JavaSE");
+                File cldcProjectDir = new File(cn1SourcesDir, "Ports/CLDC11");
+                
+                Process p = new ProcessBuilder(ANT, "jar").directory(cldcProjectDir).inheritIO().start();
+                if (p.waitFor() != 0) {
+                    throw new RuntimeException("Failed to build CLDC11 project at "+cldcProjectDir);
+                }
+                
+                p = new ProcessBuilder(ANT, "jar").directory(cn1ProjectDir).inheritIO().start();
+                if (p.waitFor() != 0) {
+                    throw new RuntimeException("Failed to build CodenameOne project at "+cn1ProjectDir);
+                }
+                
+                p = new ProcessBuilder(ANT, "jar").directory(javaSEProjectDir).inheritIO().start();
+                if (p.waitFor() != 0) {
+                    throw new RuntimeException("Failed to build JavaSE project at "+cn1ProjectDir);
+                }
+                
+                FileUtils.copyFile(new File(cn1ProjectDir, "dist/CodenameOne.jar"), new File("CodenameOne.jar"));
+                FileUtils.copyFile(new File(javaSEProjectDir, "dist/JavaSE.jar"), new File("JavaSE.jar"));
+                FileUtils.copyFile(new File(cldcProjectDir, "dist/CLDC11.jar"), new File("CLDC11.jar"));
+                        
+            }
+            
+            if (codenameOneJarPath != null && !codenameOneJarPath.isEmpty()) {
+                FileUtils.copyFile(new File(codenameOneJarPath), new File("CodenameOne.jar"));
+            }
+            if (javaSEJarPath != null && !javaSEJarPath.isEmpty()) {
+                FileUtils.copyFile(new File(javaSEJarPath), new File("JavaSE.jar"));
+            }
+            if (cldcJarPath != null && !cldcJarPath.isEmpty()) {
+                FileUtils.copyFile(new File(cldcJarPath), new File("CLDC11.jar"));
+            }
+            
+            ArrayList<Element> tests = new ArrayList<Element>(el.getChildrenByTagName("test"));
+            for (Element test : tests) {
+                String path = test.getAttribute("path");
+                String name = new File(path).getName();
+                boolean matched = argsList.isEmpty();
+                if (!matched) {
+                    for (String arg : argsList) {
+                        if (arg.endsWith("*")) {
+                            if (name.startsWith(arg.substring(0, arg.length()-1))) {
+                                matched = true;
+                                break;
+                            }
+                        } else if (arg.startsWith("*")) {
+                            if (name.endsWith(arg.substring(1))) {
+                                matched = true;
+                                break;
+                            }
+                        } else {
+                            if (arg.equalsIgnoreCase(name)) {
+                                matched = true;
+                            }
+                        }
+                    }
+                }
+                if (!matched) {
+                    continue;
+                }
+                if (update) prepareTest(test);
+                else runTest(test);
+                
+            }
+            System.out.println("PASSED tests: "+passedTests+". FAILED tests: "+failedTests);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            printTestHelp(opts);
+            System.exit(1);
+        }
     }
     
     private void css(String[] args) throws IOException, InterruptedException {
@@ -1154,6 +1475,13 @@ public class CodenameOneCLI {
                 ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
                 l.removeFirst();
                 cli.css(l.toArray(new String[l.size()]));
+                break;
+            }
+            
+            case "test" : {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.test(l.toArray(new String[l.size()]));
                 break;
             }
             
