@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
 import javax.swing.JFrame;
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -1111,10 +1113,29 @@ public class CodenameOneCLI {
     
     private void test(String[] args) {
         Options opts = new Options();
+        File seJarBak = new File("JavaSE.jar."+System.currentTimeMillis());
+        File cn1JarBak = new File("CodenameOne.jar."+System.currentTimeMillis());
+        File cldcJarBak = new File("CLDC11.jar."+System.currentTimeMillis());
+        
+        File seJarOrig = new File("JavaSE.jar");
+        File cn1JarOrig = new File("CodenameOne.jar");
+        File cldcJarOrig = new File("CLDC11.jar");
+        
+        
         try {
+            if (seJarOrig.exists()) {
+                FileUtils.copyFile(seJarOrig, seJarBak);
+            }
+            if (cn1JarOrig.exists()) {
+                FileUtils.copyFile(cn1JarOrig, cn1JarBak);
+            }
+            if (cldcJarOrig.exists()) {
+                FileUtils.copyFile(cldcJarOrig, cldcJarBak);
+            }
             opts = new Options();
             opts.addOption("u", "update", false, "Update the tests to the latest.");
             opts.addOption("v", "verbose", false, "Verbose output");
+            opts.addOption("version", true, "Codename One version to run against.  E.g. 3.8");
             opts.addOption("e", "errors", false, "Show more information about failures");
             opts.addOption("s", "stopOnFail", false, "Stop on failure");
             opts.addOption("h", "help", false, "Help");
@@ -1145,24 +1166,36 @@ public class CodenameOneCLI {
             File testConf = new File("tests.xml");
             XMLParser xparser = new XMLParser();
             Element el = xparser.parse(new FileReader(testConf));
+            boolean useDefaultCn1Jar = true;
+            boolean useDefaultSeJar = true;
+            boolean useDefaultCldcJar = true;
             
             String codenameOneJarPath = el.getAttribute("cn1Jar");
             if (line.hasOption("cn1Jar")) {
                 codenameOneJarPath = line.getOptionValue("cn1Jar");
+                useDefaultCn1Jar = false;
             }
             String javaSEJarPath = el.getAttribute("seJar");
             if (line.hasOption("seJar")) {
                 javaSEJarPath = line.getOptionValue("seJar");
+                useDefaultSeJar = false;
             }
             String cldcJarPath = el.getAttribute("clcdJar");
             if (line.hasOption("cldcJar")) {
                 cldcJarPath = line.getOptionValue("cldcJar");
+                useDefaultCldcJar = false;
             }
             String cn1Sources = el.getAttribute("cn1Sources");
             if (line.hasOption("cn1Sources")) {
                 cn1Sources = line.getOptionValue("cn1Sources");
+                useDefaultCn1Jar = false;
+                useDefaultSeJar = false;
+                useDefaultCldcJar = false;
             }
             if (cn1Sources != null && !cn1Sources.isEmpty()) {
+                useDefaultCn1Jar = false;
+                useDefaultSeJar = false;
+                useDefaultCldcJar = false;
                 File cn1SourcesDir = new File(cn1Sources);
                 if (!cn1SourcesDir.exists()) {
                     throw new FileNotFoundException("Specified cn1Sources attribute with value "+cn1Sources+" but this location was not found.");
@@ -1193,13 +1226,51 @@ public class CodenameOneCLI {
             }
             
             if (codenameOneJarPath != null && !codenameOneJarPath.isEmpty()) {
+                useDefaultCn1Jar = false;
                 FileUtils.copyFile(new File(codenameOneJarPath), new File("CodenameOne.jar"));
             }
             if (javaSEJarPath != null && !javaSEJarPath.isEmpty()) {
+                useDefaultSeJar = false;
                 FileUtils.copyFile(new File(javaSEJarPath), new File("JavaSE.jar"));
             }
             if (cldcJarPath != null && !cldcJarPath.isEmpty()) {
+                useDefaultCldcJar = false;
                 FileUtils.copyFile(new File(cldcJarPath), new File("CLDC11.jar"));
+            }
+            
+            File lib = new File("lib");
+            if (line.hasOption("version")) {
+                lib = new File("lib"+line.getOptionValue("version"));
+            }
+            if (!lib.exists()) {
+                lib.mkdir();
+            }
+            
+            File libCn1Jar = new File(lib, "CodenameOne.jar");
+            File libCldcJar = new File(lib, "CLDC11.jar");
+            File libSeJar = new File(lib, "JavaSE.jar");
+            if (update || !libCn1Jar.exists() || !libCldcJar.exists() || !libSeJar.exists()) {
+                File libsZip = downloadFiles(null);
+                libsZip.deleteOnExit();
+                if (update || !libCn1Jar.exists()) {
+                    extractCodenameOneJarTo(libsZip, libCn1Jar);
+                }
+                if (update || !libCldcJar.exists()) {
+                    extractCLDCJarTo(libsZip, libCldcJar);
+                }
+                if (update || !libSeJar.exists()) {
+                    extractJavaSEJarTo(libsZip, libSeJar);
+                }
+            }
+            
+            if (line.hasOption("version") || !cn1JarOrig.exists() || useDefaultCn1Jar) {
+                FileUtils.copyFile(libCn1Jar, cn1JarOrig);
+            }
+            if (line.hasOption("version") || !seJarOrig.exists() || useDefaultSeJar) {
+                FileUtils.copyFile(libSeJar, seJarOrig);
+            }
+            if (line.hasOption("version") || !cldcJarOrig.exists() || useDefaultCldcJar) {
+                FileUtils.copyFile(libCldcJar, cldcJarOrig);
             }
             
             ArrayList<Element> tests = new ArrayList<Element>(el.getChildrenByTagName("test"));
@@ -1229,16 +1300,135 @@ public class CodenameOneCLI {
                 if (!matched) {
                     continue;
                 }
-                if (update) prepareTest(test);
-                else runTest(test);
+                if (update || !new File(path).exists()) prepareTest(test);
+                if (!update) runTest(test);
                 
             }
             System.out.println("PASSED tests: "+passedTests+". FAILED tests: "+failedTests);
+            if (!errors && !verbose) {
+                System.out.println("Use -e option to show stack trace for failures");
+            }
         } catch (Exception ex) {
             ex.printStackTrace();
             printTestHelp(opts);
             System.exit(1);
+        } finally {
+            
+            if (seJarBak.exists()) {
+                try {
+                    if (seJarOrig.exists()) seJarOrig.delete();
+                    FileUtils.moveFile(seJarBak, seJarOrig);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+            if (cn1JarBak.exists()) {
+                try {
+                    if (cn1JarOrig.exists()) {
+                        cn1JarOrig.delete();
+                    }
+                    FileUtils.moveFile(cn1JarBak, cn1JarOrig);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+            if (cldcJarBak.exists()) {
+                try {
+                    if (cldcJarOrig.exists()) {
+                        cldcJarOrig.delete();
+                    }
+                    FileUtils.moveFile(cldcJarBak, cldcJarOrig);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
         }
+    }
+    
+    private void unzip(java.util.zip.ZipFile z, String entryName, File destinationFile) throws IOException {
+        ZipEntry se = z.getEntry(entryName);
+        InputStream is = z.getInputStream(se);
+        byte[] buffer = new byte[65536];
+        FileOutputStream os = new FileOutputStream(destinationFile);
+        int size = is.read(buffer);
+        while(size > -1) {
+            os.write(buffer, 0, size);
+            size = is.read(buffer);
+        }
+        is.close();
+        os.close();        
+    }
+    
+    private File extractFileTo(File zipLibs, String name,  File dest) throws IOException {
+        try {
+            File tmp = zipLibs;
+            java.util.zip.ZipFile z = new java.util.zip.ZipFile(tmp);
+            unzip(z, name, dest);
+            return dest;
+                        
+        } catch (IOException ioe) {
+            throw ioe;
+        } catch (Throwable err) {
+            System.out.println("An error occured downloading lib");
+            err.printStackTrace();
+            throw new RuntimeException(err);
+        }
+    }
+    
+    private File extractJavaSEJarTo(File zipLibs, File dest) throws IOException  {
+        return extractFileTo(zipLibs, "JavaSE.jar", dest);
+    }
+    
+    private File extractCodenameOneJarTo(File zipLibs, File dest) throws IOException {
+        return extractFileTo(zipLibs, "CodenameOne.jar", dest);
+    }
+    
+    private File extractCLDCJarTo(File zipLibs, File dest) throws IOException {
+        return extractFileTo(zipLibs, "CLDC11.jar", dest);
+    }
+    
+    private File downloadFiles(String v) throws IOException {
+        File tmp = File.createTempFile("DownloadLibs", "zip");
+        tmp.deleteOnExit();
+        HttpURLConnection.setFollowRedirects(true);
+        URL u = null;
+        if(v == null){
+            u = new URL("http://www.codenameone.com/files/updatedLibs.zip");
+        }else{
+            u = new URL("http://www.codenameone.com/files/" + v + "/updatedLibs.zip");            
+        }
+        FileOutputStream os = new FileOutputStream(tmp);
+        URLConnection uc = u.openConnection();
+        InputStream is = uc.getInputStream();
+        int length = uc.getContentLength();
+        byte[] buffer = new byte[65536];
+        int size = is.read(buffer);
+        int offset = 0;
+        int percent = 0;
+        if(length > 0) {
+            System.out.println("Downloading " + length + " bytes");
+        }
+        while(size > -1) {
+            offset += size;
+            if(length > 0) {
+                float f = ((float)offset) / ((float)length) * 100;
+                if(percent != ((int)f)) {
+                    percent = (int)f;
+                    System.out.println("Downloaded " + percent + "%");
+                }
+            } else {
+                if(percent < offset / 102400) {
+                    percent = offset / 102400;
+                    System.out.println("Downloaded " + percent + "00Kb");
+                }
+            }
+            os.write(buffer, 0, size);
+            size = is.read(buffer);
+        }
+        is.close();
+        os.close();
+        System.out.println("Download completed!");
+        return tmp;
     }
     
     private void css(String[] args) throws IOException, InterruptedException {
