@@ -279,18 +279,24 @@ public class CodenameOneCLI {
     }
     
     private void copyJarsToProject(File projectDir) throws IOException {
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
-                new File(projectDir, "JavaSE.jar"));
+        File zip = downloadFiles(null);
+        extractJavaSEJarTo(zip, new File(projectDir, "JavaSE.jar"));
+        extractCLDCJarTo(zip, new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        extractCodenameOneJarTo(zip, new File(projectDir, "lib" + File.separator + "CodenameOne.jar"));
+        zip.delete();
         
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
-                new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
+        //        new File(projectDir, "JavaSE.jar"));
         
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
-                new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
-        );
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
+        //        new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
+        //        new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
+        //);
         
         FileUtils.copyInputStreamToFile(
                 CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.zip"),
@@ -309,18 +315,23 @@ public class CodenameOneCLI {
     }
     
     private void copyJarsToProjectWithoutRes(File projectDir) throws IOException {
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
-                new File(projectDir, "JavaSE.jar"));
+        File zip = downloadFiles(null);
+        extractJavaSEJarTo(zip, new File(projectDir, "JavaSE.jar"));
+        extractCLDCJarTo(zip, new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        extractCodenameOneJarTo(zip, new File(projectDir, "lib" + File.separator + "CodenameOne.jar"));
+        zip.delete();
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("JavaSE.jar"), 
+        //        new File(projectDir, "JavaSE.jar"));
         
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
-                new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("CLDC11.jar"), 
+        //        new File(projectDir, "lib" + File.separator + "CLDC11.jar"));
         
-        FileUtils.copyInputStreamToFile(
-                CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
-                new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
-        );
+        //FileUtils.copyInputStreamToFile(
+        //        CodenameOneCLI.class.getResourceAsStream("CodenameOne.jar"),
+        //        new File(projectDir, "lib" + File.separator + "CodenameOne.jar")
+        //);
         
         FileUtils.copyInputStreamToFile(
                 CodenameOneCLI.class.getResourceAsStream("CodenameOne_SRC.zip"),
@@ -871,6 +882,7 @@ public class CodenameOneCLI {
                     + "  settings - Open project settings for project in current directory.\n"
                     + "  css - CSS-related commands\n"
                     + "  test - Unit-test related commands\n"
+                    + "  install-jars - Install latest jars into project"
                     + "  ");
             
         }
