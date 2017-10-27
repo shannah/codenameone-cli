@@ -1016,6 +1016,14 @@ public class CodenameOneCLI {
         cldcJarBak.deleteOnExit();
         boolean copiedCldcJar = false;
         
+        File buildClientJar =  new File(testDir, "CodeNameOneBuildClient.jar");
+        if (!buildClientJar.exists()) {
+            FileUtils.copyInputStreamToFile(
+                    CodenameOneCLI.class.getResourceAsStream("CodeNameOneBuildClient.jar"),
+                    buildClientJar
+            );
+        }
+        
         try {
             if (javaSE.exists()) {
                 copiedJavaSE = true;
