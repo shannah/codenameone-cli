@@ -1037,8 +1037,10 @@ public class CodenameOneCLI {
                 if (testCldcJar.exists()) FileUtils.moveFile(testCldcJar, cldcJarBak);
                 FileUtils.copyFile(cldcJar, testCldcJar);
             }
-            
-            Process p = new ProcessBuilder(ANT, "test").directory(testDir).start();
+            File tmpErrorLog = File.createTempFile("cn1_test_errors", ".log");
+            tmpErrorLog.deleteOnExit();
+                    
+            Process p = new ProcessBuilder(ANT, "test").directory(testDir).redirectError(tmpErrorLog).start();
             
             String sep = System.getProperty("line.separator");
             try (InputStream is = p.getInputStream()) {
@@ -1071,10 +1073,12 @@ public class CodenameOneCLI {
                     }
                 }
                 if (p.waitFor() != 0) {
-                    
+                    System.err.println("Errors occured.  Log:");
+                    System.out.println(FileUtils.readFileToString(tmpErrorLog));
                     throw new RuntimeException("Test "+testDir+" failed");
                 }
             }
+            
             
             
         } finally {
