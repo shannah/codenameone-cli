@@ -56,6 +56,8 @@ public class CodenameOneCLI {
     
     private static String GIT="git";
     private static String ANT="ant";
+    private boolean logcatVerbose;
+    private boolean skipBuild; // Flag to tell it to skip the build if the build is already done.
     
     public static enum IDE {
         Netbeans,
@@ -1058,36 +1060,38 @@ public class CodenameOneCLI {
                 createAndroidSrcJar(cn1Sources, androidSrcJar);
             }
             Process p = null;
-            try {
-                // Send to build server synchronously
-                String buildTarget = "test-for-android-device";
-                if (System.getProperty("debug") != null) {
-                    buildTarget += "-debug";
-                }
-                System.out.print("Sending to build server ... this may take a few minutes ...");
-                p = new ProcessBuilder(ANT, buildTarget, 
-                        "-Dautomated=true", 
-                        "-Dcodename1.android.keystore="+System.getProperty("keystore", new File("Keychain.ks").getAbsolutePath()), 
-                        "-Dcodename1.android.keystoreAlias="+System.getProperty("keystoreAlias", "codenameone"),
-                        "-Dcodename1.android.keystorePassword="+System.getProperty("keystorePassword", "password"),
-                        "-Dcodename1.arg.android.debug=true"
-                        )
-                        .directory(testDir)
-                        .redirectError(tmpErrorLog)
-                        .start();
-                if (p.waitFor() != 0) {
-                    System.err.println("Errors occured.  Log:");
-                    System.out.println(FileUtils.readFileToString(tmpErrorLog));
-                    throw new RuntimeException("Test "+testDir+" failed");
-                }
-                System.out.println("Completed");
-            } finally {
-                if (androidSrcJar != null) {
-                    androidSrcJar.delete();
+            File resultZip = new File(testDir, "dist" + File.separator + "result.zip");
+            if (!skipBuild || !resultZip.exists()) {
+                try {
+                    // Send to build server synchronously
+                    String buildTarget = "test-for-android-device";
+                    if (System.getProperty("debug") != null) {
+                        buildTarget += "-debug";
+                    }
+                    System.out.print("Sending to build server ... this may take a few minutes ...");
+                    p = new ProcessBuilder(ANT, buildTarget, 
+                            "-Dautomated=true", 
+                            "-Dcodename1.android.keystore="+System.getProperty("keystore", new File("Keychain.ks").getAbsolutePath()), 
+                            "-Dcodename1.android.keystoreAlias="+System.getProperty("keystoreAlias", "codenameone"),
+                            "-Dcodename1.android.keystorePassword="+System.getProperty("keystorePassword", "password"),
+                            "-Dcodename1.arg.android.debug=true"
+                            )
+                            .directory(testDir)
+                            .redirectError(tmpErrorLog)
+                            .start();
+                    if (p.waitFor() != 0) {
+                        System.err.println("Errors occured.  Log:");
+                        System.out.println(FileUtils.readFileToString(tmpErrorLog));
+                        throw new RuntimeException("Test "+testDir+" failed");
+                    }
+                    System.out.println("Completed");
+                } finally {
+                    if (androidSrcJar != null) {
+                        androidSrcJar.delete();
+                    }
                 }
             }
             
-            File resultZip = new File(testDir, "dist" + File.separator + "result.zip");
             if (!resultZip.exists()) {
                 System.err.println("Synchronous android build failed.");
                 throw new RuntimeException("Test "+testDir+" failed");
@@ -1178,12 +1182,13 @@ public class CodenameOneCLI {
                 Pattern failedPattern = Pattern.compile(".*Passed: (\\d+) tests\\. Failed: (\\d+) tests\\..*");
                                                             //Total 1 tests passed
                 Pattern allPassedPattern = Pattern.compile(".*Total (\\d+) tests passed.*");
+                Pattern pidRegex = Pattern.compile("\\b"+Pattern.quote(pid)+"\\b");
                 
                 while (scanner.hasNextLine()) {
                     String line = scanner.nextLine();
                     //System.out.println("LINE:");
                     //System.out.println("Looking for ("+paddedPid+")");
-                    if (!line.contains("("+paddedPid+")")) {
+                    if (!logcatVerbose && !line.contains("("+paddedPid+")") && !pidRegex.matcher(line).find()) {
                         continue;
                     }
                     
@@ -1456,6 +1461,8 @@ public class CodenameOneCLI {
             opts.addOption("cn1Sources", true, "Path to codename one sources to use for tests");
             opts.addOption("t", "target", true, "Run tests on device. Only android supported");
             opts.addOption("d", "device", true, "The device ID to run tests on.  Accompanies -t android flag");
+            opts.addOption("lv", "logcatVerbose", false, "Verbose logcat output.");
+            opts.addOption("skipBuild", false, "Skip build step for device tests.  Assumes that you did build in previous test.");
             
             DefaultParser parser = new DefaultParser();
             
@@ -1464,8 +1471,10 @@ public class CodenameOneCLI {
             
             boolean update = line.hasOption("u");
             verbose = line.hasOption("v");
+            logcatVerbose = line.hasOption("lv");
             errors = line.hasOption("e");
             stopOnFail = line.hasOption("s");
+            skipBuild = line.hasOption("skipBuild");
             
             if (line.hasOption("h")) {
                 printTestHelp(opts);
