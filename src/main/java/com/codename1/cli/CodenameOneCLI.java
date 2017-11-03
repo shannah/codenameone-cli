@@ -1068,13 +1068,20 @@ public class CodenameOneCLI {
                     if (System.getProperty("debug") != null) {
                         buildTarget += "-debug";
                     }
-                    System.out.print("Sending to build server ... this may take a few minutes ...");
+                    String cn1user = System.getenv("CN1USER");
+                    String cn1pass = System.getenv("CN1PASS");
+                    cn1user = System.getProperty("CN1USER", cn1user);
+                    cn1pass = System.getProperty("CN1PASS", cn1pass);
+                    System.out.print("Sending to build server with account "+cn1user+" ... this may take a few minutes ...");
+                    
                     p = new ProcessBuilder(ANT, buildTarget, 
                             "-Dautomated=true", 
                             "-Dcodename1.android.keystore="+System.getProperty("keystore", new File("Keychain.ks").getAbsolutePath()), 
                             "-Dcodename1.android.keystoreAlias="+System.getProperty("keystoreAlias", "codenameone"),
                             "-Dcodename1.android.keystorePassword="+System.getProperty("keystorePassword", "password"),
-                            "-Dcodename1.arg.android.debug=true"
+                            "-Dcodename1.arg.android.debug=true",
+                            (cn1user!=null)?"-Dcn1user="+cn1user:"-Dcn1.default.user=1",
+                            (cn1pass!=null)?"-Dcn1password="+cn1pass:"-Dcn1.default.password=1"
                             )
                             .directory(testDir)
                             .redirectError(tmpErrorLog)
@@ -1423,6 +1430,7 @@ public class CodenameOneCLI {
     private boolean verbose, errors, stopOnFail;
     private int passedTests;
     private int failedTests;
+    private boolean skipCompileCn1Sources;
     
     private void test(String[] args) {
         Options opts = new Options();
@@ -1463,7 +1471,7 @@ public class CodenameOneCLI {
             opts.addOption("d", "device", true, "The device ID to run tests on.  Accompanies -t android flag");
             opts.addOption("lv", "logcatVerbose", false, "Verbose logcat output.");
             opts.addOption("skipBuild", false, "Skip build step for device tests.  Assumes that you did build in previous test.");
-            
+            opts.addOption("skipCompileCn1Sources", false, "Skip the compilation of Codename One sources if it is already built.");
             DefaultParser parser = new DefaultParser();
             
             CommandLine line = parser.parse(opts, args);
@@ -1475,6 +1483,7 @@ public class CodenameOneCLI {
             errors = line.hasOption("e");
             stopOnFail = line.hasOption("s");
             skipBuild = line.hasOption("skipBuild");
+            skipCompileCn1Sources = line.hasOption("skipCompileCn1Sources");
             
             if (line.hasOption("h")) {
                 printTestHelp(opts);
@@ -1525,20 +1534,24 @@ public class CodenameOneCLI {
                 File cn1ProjectDir = new File(cn1SourcesDir, "CodenameOne");
                 File javaSEProjectDir = new File(cn1SourcesDir, "Ports/JavaSE");
                 File cldcProjectDir = new File(cn1SourcesDir, "Ports/CLDC11");
-                
-                Process p = new ProcessBuilder(ANT, "jar").directory(cldcProjectDir).inheritIO().start();
-                if (p.waitFor() != 0) {
-                    throw new RuntimeException("Failed to build CLDC11 project at "+cldcProjectDir);
+                Process p = null;
+                if (!new File(cldcProjectDir, "dist/CLDC11.jar").exists() || !skipCompileCn1Sources) {
+                    p = new ProcessBuilder(ANT, "jar").directory(cldcProjectDir).inheritIO().start();
+                    if (p.waitFor() != 0) {
+                        throw new RuntimeException("Failed to build CLDC11 project at "+cldcProjectDir);
+                    }
                 }
-                
-                p = new ProcessBuilder(ANT, "jar").directory(cn1ProjectDir).inheritIO().start();
-                if (p.waitFor() != 0) {
-                    throw new RuntimeException("Failed to build CodenameOne project at "+cn1ProjectDir);
+                if (!new File(cn1ProjectDir, "dist/CodenameOne.jar").exists() || !skipCompileCn1Sources) {
+                    p = new ProcessBuilder(ANT, "jar").directory(cn1ProjectDir).inheritIO().start();
+                    if (p.waitFor() != 0) {
+                        throw new RuntimeException("Failed to build CodenameOne project at "+cn1ProjectDir);
+                    }
                 }
-                
-                p = new ProcessBuilder(ANT, "jar").directory(javaSEProjectDir).inheritIO().start();
-                if (p.waitFor() != 0) {
-                    throw new RuntimeException("Failed to build JavaSE project at "+cn1ProjectDir);
+                if (!new File(javaSEProjectDir, "dist/JavaSE.jar").exists() || !skipCompileCn1Sources) {
+                    p = new ProcessBuilder(ANT, "jar").directory(javaSEProjectDir).inheritIO().start();
+                    if (p.waitFor() != 0) {
+                        throw new RuntimeException("Failed to build JavaSE project at "+cn1ProjectDir);
+                    }
                 }
                 
                 FileUtils.copyFile(new File(cn1ProjectDir, "dist/CodenameOne.jar"), new File("CodenameOne.jar"));
@@ -1655,8 +1668,8 @@ public class CodenameOneCLI {
                                     if (p.waitFor() != 0) {
                                         throw new RuntimeException("Failed to run adb devices -l.  Please ensure that adb is installed and in your environment PATH.");
                                     }
-                                    if (devices.size() > 0) {
-                                        System.err.println("More than one device was listed.  Please specify the device to run tests on using the -d flag");
+                                    if (devices.size() != 1) {
+                                        System.err.println("More than or less than one device was listed.  Please specify the device to run tests on using the -d flag");
                                         System.err.println("Found devices: "+devices);
                                         throw new RuntimeException("Try again");
                                     }
