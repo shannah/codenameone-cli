@@ -1111,13 +1111,22 @@ public class CodenameOneCLI {
                 System.err.println("Failed to extract .apk file out of "+resultZip);
                 throw new RuntimeException("Test "+testDir+" failed");
             }
-            
+            ProcessBuilder pb = null;
             // First install the APK on device
-            p = new ProcessBuilder(adbPath, "-s", deviceName, "install", "-r", apk.getAbsolutePath())
-                    .directory(testDir)
-                    .redirectError(tmpErrorLog)
-                    .start();
             
+            if (verbose) {
+                System.out.println("Installing apk on device "+deviceName);
+            }
+            pb = new ProcessBuilder(adbPath, "-s", deviceName, "install", "-r", apk.getAbsolutePath())
+                    .directory(testDir);
+            
+            if (verbose) {
+                pb.inheritIO();
+            } else {
+                pb.redirectError(tmpErrorLog);
+            }
+            
+            p = pb.start();
             if (p.waitFor() != 0) {
                 System.err.println("Failed to install apk on device "+deviceName+"  Log:");
                 System.out.println(FileUtils.readFileToString(tmpErrorLog));
@@ -1137,11 +1146,19 @@ public class CodenameOneCLI {
             
             System.out.println("Running test "+packageName+" on device "+deviceName);
             // Next start the unit tests activity
-            p = new ProcessBuilder(adbPath, "-s", deviceName, 
+            if (verbose) {
+                System.out.println("Starting activity on device...");
+            }
+            pb = new ProcessBuilder(adbPath, "-s", deviceName, 
                     "shell", "am", "start", "-a", "android.intent.action.MAIN",
                     "-n", packageName + "/.CodenameOneUnitTestExecutorStub"
                     
-                ).start();
+                );
+            if (verbose) {
+                pb.inheritIO();
+            }
+            
+            p = pb.start();
             
             if (p.waitFor() != 0) {
                 System.err.println("Failed to start activity "+packageName+" on device "+deviceName);
@@ -1149,24 +1166,45 @@ public class CodenameOneCLI {
             }
             
             // Next find the PID
-            
-            p = new ProcessBuilder(adbPath, "-s", deviceName, "shell", "ps | grep "+packageName)
-                    .redirectError(tmpErrorLog).start();
+            long now = System.currentTimeMillis();
+            long timeout = 30000l;
             String pid = null;
-            try (InputStream is = p.getInputStream()){
-                Scanner scanner = new Scanner(is, "UTF-8");
-                while (scanner.hasNextLine()) {
-                    String line = scanner.nextLine().trim();
-                    String[] parts = line.split("\\s+");
-                    //System.out.println("Parts:"+Arrays.toString(parts));
-                    if (parts.length < 7) {
-                        throw new RuntimeException("Problem splitting the line from ps command.  Line was "+line+", split to "+Arrays.toString(parts));
+            
+            while (pid == null && now + timeout >= System.currentTimeMillis()) {     
+                // We place in a loop because it may take some time on slower systems
+                // before the pid will be present.
+                p = new ProcessBuilder(adbPath, "-s", deviceName, "shell", "ps | grep "+packageName)
+                        .redirectError(tmpErrorLog).start();
+
+                if (verbose) {
+                    System.out.println("Looking for pid of for package "+packageName);
+                }
+                try (InputStream is = p.getInputStream()){
+                    Scanner scanner = new Scanner(is, "UTF-8");
+                    while (scanner.hasNextLine()) {
+                        String line = scanner.nextLine().trim();
+                        if (verbose) {
+                            System.out.println("[adb shell ps] "+line);
+                        }
+                        String[] parts = line.split("\\s+");
+                        //System.out.println("Parts:"+Arrays.toString(parts));
+                        if (parts.length < 7) {
+                            throw new RuntimeException("Problem splitting the line from ps command.  Line was "+line+", split to "+Arrays.toString(parts));
+                        }
+                        pid = parts[1].trim();
                     }
-                    pid = parts[1].trim();
+                }
+                if (pid == null) {
+                    try {
+                        // If we didn't find the pid, let's sleep for 1 second
+                        // before checking again.
+                        Thread.sleep(1000l);
+                    } catch (Throwable t) {}
                 }
             }
             if (pid == null) {
                 System.err.println("Failed to find pid for package "+packageName+" on device "+deviceName);
+                System.err.println("Error log "+FileUtils.readFileToString(tmpErrorLog));
                 throw new RuntimeException("Test "+testDir+" failed");
             }
             
