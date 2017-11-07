@@ -1167,7 +1167,7 @@ public class CodenameOneCLI {
             
             // Next find the PID
             long now = System.currentTimeMillis();
-            long timeout = 30000l;
+            long timeout = 90000l;
             String pid = null;
             
             while (pid == null && now + timeout >= System.currentTimeMillis()) {     
