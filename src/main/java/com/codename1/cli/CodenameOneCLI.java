@@ -389,6 +389,21 @@ public class CodenameOneCLI {
         );
         
         
+        prependJarsToClasspath(projectDir);
+        
+    }
+    
+    private void prependJarsToClasspath(File projectDir) throws IOException {
+        File projectProps = new File(projectDir, "nbproject" + File.separator + "project.properties");
+        if (projectProps.exists()) {
+           Properties props = new Properties();
+           props.load(new FileInputStream(projectProps));
+           props.setProperty("javac.classpath", "lib/CodenameOne.jar:"+props.getProperty("javac.classpath"));
+           props.setProperty("run.classpath", "JavaSE.jar:"+props.getProperty("run.classpath"));
+           props.setProperty("javac.test.classpath", "JavaSE.jar:"+props.getProperty("javac.test.classpath"));
+           props.store(new FileOutputStream(projectProps), "Updated classpaths");
+            
+        }
     }
     
     private File getEclipseLocation(String eclipseLocation) throws IOException{
@@ -930,6 +945,8 @@ public class CodenameOneCLI {
                     + "  install-jars - Install latest jars into project\n"
                     + "  install-tests - Install tests.xml file with some test targets\n"
                     + "  install-appium-tests - Install appium.xml file with some appium tests defined.\n"
+                    + "  git-init - Same as git init, but adds suitable .gitignore file.\n"
+                    + "  git-clone - Same as git clone, but installs jars."
                     + "  ");
             
         }
@@ -1633,6 +1650,65 @@ public class CodenameOneCLI {
         
     }
     
+    
+    private void gitClone(String[] args)  {
+        try {
+            Options opts = new Options();
+            List<String> commands = new ArrayList<String>();
+            commands.add("git");
+            commands.add("clone");
+            commands.addAll(Arrays.asList(args));
+            Process p = new ProcessBuilder(commands).inheritIO().start();
+            if (p.waitFor() != 0) {
+                System.exit(1);
+            }
+            String destStr = null;
+            if (args.length == 1) {
+                destStr = args[0].substring(args[0].lastIndexOf("/")+1);
+                if (destStr.endsWith(".git")) {
+                    destStr = destStr.substring(0, destStr.lastIndexOf("."));
+                }
+            } else {
+                destStr = args[1];
+            }
+            File dest = new File(destStr);
+            System.out.println("Installing jars into "+dest+"...");
+            copyJarsToProjectWithoutRes(dest);
+            System.out.println("Project ready at "+dest);
+            
+        } catch (Exception ex) {
+            Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
+            System.exit(1);
+        }
+        
+    }
+    
+    private boolean installGitIgnore(File cwd) throws IOException {
+        File gitIgnore = new File(cwd, ".gitignore");
+        if (gitIgnore.exists()) {
+            System.err.println("Not installing .gitignore because it already exists in "+cwd);
+            return false;
+        }
+        FileUtils.copyURLToFile(CodenameOneCLI.class.getResource("gitignore.project.template"), new File(cwd, ".gitignore"));
+        return true;
+        
+    }
+    
+    private void gitInit(String[] args) {
+        try {
+            Process p = new ProcessBuilder("git", "init").inheritIO().start();
+            if (p.waitFor() != 0) {
+                System.exit(1);
+            }
+            
+            installGitIgnore(new File(".").getAbsoluteFile());
+            
+        } catch (Exception ex) {
+            Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
+            System.exit(1);
+        }
+    }
+    
     private boolean verbose, errors, stopOnFail;
     private int passedTests;
     private int failedTests;
@@ -2149,6 +2225,7 @@ public class CodenameOneCLI {
         }
     }
     
+    
     private void installCSS(boolean update) throws IOException, InterruptedException {
         File settings = new File(dir, "codenameone_settings.properties");
         if (!settings.exists()) {
@@ -2379,6 +2456,20 @@ public class CodenameOneCLI {
                 }
                 cli.setLibVersion(new File("."), args[1]);
                 System.out.println("Version now "+args[1]);
+                break;
+            }
+            
+            case "git-init": {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.gitInit(l.toArray(new String[l.size()]));
+                break;
+            }
+            
+            case "git-clone": {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.gitClone(l.toArray(new String[l.size()]));
                 break;
             }
                 
