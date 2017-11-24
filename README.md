@@ -42,7 +42,26 @@ npm install -g codenameone-cli
 sudo npm install -g codenameone-cli
 ~~~~
 
+NOTE: The above commands will install it globally, and you require admin permissions to do this typically (hence the `sudo` in the linux/mac command).  You can also install it locally, using `npm install codenameone-cli` in which case the command will be installed at `./node_modules/.bin/cn1`.
+
 ## Usage
+
+### General Usage
+
+~~~~
+Usage: codenameone-cli [command]
+
+Commands:
+  create - Create a new Codename One Project
+  settings - Open project settings for project in current directory.
+  css - CSS-related commands
+  test - Unit-test related commands
+  install-jars - Install latest jars into project
+  install-tests - Install tests.xml file with some test targets
+  install-appium-tests - Install appium.xml file with some appium tests defined.
+  git-init - Same as git init, but adds suitable .gitignore file.
+  git-clone - Same as git clone, but installs jars.  
+~~~~
 
 ### Creating Projects
 
@@ -98,4 +117,62 @@ The templates listed in the "Create Project Form" are all loaded from [this json
 
 Of course, templates don't need to be listed there to be available for use.  If your Codename One project is on Github, you can simply provide the "master.zip" URL as the `-t` parameter of `cn1 create` and the template will be used.
 
+### Cloning Projects From github
 
+Generally, when we host Codename One projects on Github, we strip out the common binaries like CodenameOne.jar, JavaSE.jar, etc...   This can be a little annoying when you are cloning projects because you have to first copy the jar files back into the project before you can build it.  The `cn1 git-clone` command is a thin wrapper around `git clone` that will automatically perform this housekeeping for you.
+
+**Example Usage**
+
+Let's take the [KitchenSink](https://github.com/codenameone/KitchenSink) project, for example.
+
+~~~~
+$ cn1 git-clone https://github.com/codenameone/KitchenSink
+Cloning into 'KitchenSink'...
+Installing jars into KitchenSink...
+Downloading 11606508 bytes
+Download completed!
+Project ready at KitchenSink
+~~~~
+
+NOTE: It also works to specify only the project using "ownername/projectname", e.g. `cn1 git-clone codenameone/KitchenSink`
+
+Now we can immediately build this project:
+
+~~~~
+$ cd KitchenSink
+$ ant jar
+~~~~
+
+Or run it in the Codename One simulator:
+
+~~~~
+$ ant run
+~~~~
+
+Bonus Points:  You can clone and run the project in a single line with:
+
+~~~~
+$ cn1 git-clone https://github.com/codenameone/KitchenSink && cd KitchenSink && ant run
+~~~~
+
+### Finding Projects To clone
+
+Use the `list-demos` command to find Codename One projects that can be cloned using the `git-clone` command.
+
+**Example**
+
+[source,bash]
+----
+$ cn1 list-demos
+----
+
+You'll get a readout like:
+
+[source,bash]
+----
+shannah/GeoVizDemo            : A demo app using the Codename One GeoViz Library
+----
+
+### Adding Your Own Demos
+
+The `list-demos` command lists all projects on Github that are tagged with both the `codenameone` and `demo` topics.  If you have a demo project that you are hosting on Github, all you need to do is add these topics to your project, and your project will be returned by the `list-demos` command.

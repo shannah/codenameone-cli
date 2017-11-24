@@ -5,6 +5,7 @@
  */
 package com.codename1.cli;
 
+import com.codename1.processing.Result;
 import com.codename1.templatebrowser.TemplateBrowser;
 import com.codename1.templatebrowser.TemplateBrowser.TemplateBrowserConnector;
 import com.codename1.xml.Element;
@@ -19,13 +20,16 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Timer;
@@ -936,18 +940,30 @@ public class CodenameOneCLI {
             }
             
         } else {
-            System.err.println("Usage: codenameone-cli [command] \n\n"
-                    + "Commands:\n"
-                    + "  create - Create a new Codename One Project\n"
-                    + "  settings - Open project settings for project in current directory.\n"
-                    + "  css - CSS-related commands\n"
-                    + "  test - Unit-test related commands\n"
-                    + "  install-jars - Install latest jars into project\n"
-                    + "  install-tests - Install tests.xml file with some test targets\n"
-                    + "  install-appium-tests - Install appium.xml file with some appium tests defined.\n"
-                    + "  git-init - Same as git init, but adds suitable .gitignore file.\n"
-                    + "  git-clone - Same as git clone, but installs jars."
-                    + "  ");
+            System.err.println("Usage: codenameone-cli [command]");
+            System.out.println("Commands:");
+            String format = "%-25s%-50s";
+            System.out.println("");
+            System.out.format(format,"create", "Create a new Codename One Project");
+            System.out.println("");
+            System.out.format(format,"settings", "Open project settings for project in current directory.");
+            System.out.println("");
+            System.out.format(format,"css", "CSS-related commands");
+            System.out.println("");
+            System.out.format(format,"test", "Unit-test related commands");
+            System.out.println("");
+            System.out.format(format, "install-jars", "Install latest jars into project");
+            System.out.println("");
+            System.out.format(format, "install-tests", "Install tests.xml file with some test targets");
+            System.out.println("");
+            System.out.format(format, "install-appium-tests", "Install appium.xml file with some appium tests defined.");
+            System.out.println("");
+            System.out.format(format, "git-init", "Same as git init, but adds suitable .gitignore file.");
+            System.out.println("");
+            System.out.format(format,"git-clone", "Same as git clone, but installs jars.");
+            System.out.println("");
+            System.out.format(format, "list-demos", "Lists available demos that can be installed via git-clone");
+            System.out.println("");
             
         }
     }
@@ -1658,6 +1674,16 @@ public class CodenameOneCLI {
             commands.add("git");
             commands.add("clone");
             commands.addAll(Arrays.asList(args));
+            if (commands.size() < 3) {
+                System.err.println("No repository specified");
+                System.exit(1);
+            }
+            String repoName = commands.get(2);
+            if (!repoName.startsWith("http://") && !repoName.startsWith("https://")) {
+                repoName = "https://github.com/" + repoName;
+                commands.set(2, repoName);
+            }
+            
             Process p = new ProcessBuilder(commands).inheritIO().start();
             if (p.waitFor() != 0) {
                 System.exit(1);
@@ -1707,6 +1733,32 @@ public class CodenameOneCLI {
             Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
             System.exit(1);
         }
+    }
+    
+    private void gitListDemos(String[] args) throws IOException {
+        try {
+            String searchUrlStr = "https://api.github.com/search/repositories?utf8=%E2%9C%93&q=topic:codenameone+topic:demo";
+            if (args.length > 0) {
+                searchUrlStr = searchUrlStr+"+"+URLEncoder.encode(args[0], "UTF-8");
+            }
+            URL searchUrl = new URL(searchUrlStr);
+            HttpURLConnection conn = (HttpURLConnection)searchUrl.openConnection();
+            conn.setRequestProperty("Accept", "application/vnd.github.v3.text-match+json");
+            conn.setInstanceFollowRedirects(true);
+            conn.setUseCaches(false);
+            conn.connect();
+            Result res = Result.fromContent(conn.getInputStream(), Result.JSON);
+            List<Map> items = res.getAsArray("items");
+            for (Map item : items) {
+                System.out.format("%-30s%-50s", item.get("full_name"), ": "+item.get("description"));
+                System.out.println("");
+            }
+            //System.out.println(res);
+            //System.out.println("Results "+res);
+        } catch (MalformedURLException ex) {
+            Logger.getLogger(CodenameOneCLI.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
     }
     
     private boolean verbose, errors, stopOnFail;
@@ -2470,6 +2522,13 @@ public class CodenameOneCLI {
                 ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
                 l.removeFirst();
                 cli.gitClone(l.toArray(new String[l.size()]));
+                break;
+            }
+            
+            case "list-demos": {
+                ArrayDeque<String> l = new ArrayDeque<String>(Arrays.asList(args));
+                l.removeFirst();
+                cli.gitListDemos(l.toArray(new String[l.size()]));
                 break;
             }
                 
