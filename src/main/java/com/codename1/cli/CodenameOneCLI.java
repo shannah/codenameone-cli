@@ -404,7 +404,9 @@ public class CodenameOneCLI {
            props.load(new FileInputStream(projectProps));
            props.setProperty("javac.classpath", "lib/CodenameOne.jar:"+props.getProperty("javac.classpath"));
            props.setProperty("run.classpath", "JavaSE.jar:"+props.getProperty("run.classpath"));
+           props.setProperty("run.test.classpath", "JavaSE.jar:"+props.getProperty("run.test.classpath"));
            props.setProperty("javac.test.classpath", "JavaSE.jar:"+props.getProperty("javac.test.classpath"));
+           props.setProperty("file.reference.JavaSE.jar", "JavaSE.jar");
            props.store(new FileOutputStream(projectProps), "Updated classpaths");
             
         }
@@ -1479,7 +1481,12 @@ public class CodenameOneCLI {
             } else {
                 commands.add("test-ios-appium-simulator");
             }
-            commands.add("-Dcn1.iphone.target="+(System.getProperty("debug")!=null?"debug_iphone_steve":"iphone"));
+            commands.add("-Dcn1.iphone.target="+
+                    System.getProperty(
+                            "cn1.iphone.target", 
+                            System.getProperty("debug")!=null?"debug_iphone_steve":"iphone"
+                    )
+            );
             if (cn1user != null && cn1pass != null) {
                 commands.add("-Dcn1user="+cn1user);
                 commands.add("-Dcn1password="+cn1pass);
