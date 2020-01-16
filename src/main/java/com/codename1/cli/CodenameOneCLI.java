@@ -64,7 +64,12 @@ public class CodenameOneCLI {
     private static final String OS = System.getProperty("os.name");
     private static final boolean WINDOWS = OS.toLowerCase().contains("win");
     private static String GIT="git";
-    private static String ANT="ant" + (WINDOWS ? ".bat" : "");
+    private static String ANT=System.getProperty("ant.path", 
+            (System.getenv("ANT_PATH") != null && !System.getenv("ANT_PATH").isEmpty()) ? 
+                    System.getenv("ANT_PATH") :
+                    ("ant" + (WINDOWS ? ".bat" : ""))
+    );
+    
     private boolean logcatVerbose;
     private boolean skipBuild; // Flag to tell it to skip the build if the build is already done.
 
