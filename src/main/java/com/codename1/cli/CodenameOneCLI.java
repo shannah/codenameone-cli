@@ -61,9 +61,10 @@ import org.apache.commons.io.FileUtils;
  * @author shannah
  */
 public class CodenameOneCLI {
-    
+    private static final String OS = System.getProperty("os.name");
+    private static final boolean WINDOWS = OS.toLowerCase().contains("win");
     private static String GIT="git";
-    private static String ANT="ant";
+    private static String ANT="ant" + (WINDOWS ? ".exe" : "");
     private boolean logcatVerbose;
     private boolean skipBuild; // Flag to tell it to skip the build if the build is already done.
 
@@ -607,7 +608,7 @@ public class CodenameOneCLI {
             System.out.println("Attempting to refresh CN1Libs");
             ProcessBuilder pb = new ProcessBuilder();
             pb.inheritIO();
-            pb.command("ant", "refresh-libs");
+            pb.command(ANT, "refresh-libs");
             pb.directory(projectDir);
             Process process = pb.start();
             process.waitFor();
@@ -1471,7 +1472,7 @@ public class CodenameOneCLI {
             cn1pass = System.getProperty("CN1PASS", cn1pass);
             System.out.print("Sending to build server with account "+cn1user+" ... this may take a few minutes ...");
             List<String> commands = new ArrayList<String>();
-            commands.add("ant");
+            commands.add(ANT);
             commands.add("-f");
             commands.add("appium.xml");
             

@@ -39,7 +39,8 @@
             <groupId>ca.weblite</groupId>
             <artifactId>codename1-javase</artifactId>
             <version>0.0.1</version>
-            <!--<systemPath>/Users/shannah/cn1_files/incubator/HelloTeaVMCN1/dist/HelloTeaVMCN1.jar</systemPath>-->
+            <scope>system</scope>
+           <systemPath>${basedir}/JavaSE.jar</systemPath> <!--<systemPath>/Users/shannah/cn1_files/incubator/HelloTeaVMCN1/dist/HelloTeaVMCN1.jar</systemPath>-->
             <!--<systemPath>/Users/shannah/cn1_files/CodenameOne-git/Ports/JavaSE/dist/JavaSE.jar</systemPath>-->
         </dependency>
         <!--<dependency>
