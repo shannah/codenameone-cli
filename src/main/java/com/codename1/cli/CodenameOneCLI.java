@@ -2215,9 +2215,9 @@ public class CodenameOneCLI {
         HttpURLConnection.setFollowRedirects(true);
         URL u = null;
         if(v == null){
-            u = new URL("http://www.codenameone.com/files/updatedLibs.zip");
+            u = new URL("https://www.codenameone.com/files/updatedLibs.zip");
         }else{
-            u = new URL("http://www.codenameone.com/files/" + v + "/updatedLibs.zip");            
+            u = new URL("https://www.codenameone.com/files/" + v + "/updatedLibs.zip");            
         }
         FileOutputStream os = new FileOutputStream(tmp);
         URLConnection uc = u.openConnection();
